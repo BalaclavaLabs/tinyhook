@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,36 +12,51 @@ import (
 	"time"
 )
 
+func Log(name string, input ...string) {
+	fmt.Printf("[Tinyhook][%s] %s\n", name, fmt.Sprintf(input[0], input[1:]))
+}
+
+func InitDir(dir string) {
+	info, err := os.Stat(dir)
+	if err != nil {
+		Log("system", "Dir %s doesn't exist creating", dir)
+		os.Mkdir(dir, os.ModePerm)
+		info, _ = os.Stat(dir)
+	}
+	if !info.IsDir() {
+		Log("system", "%s is not a directory deleting", dir)
+		Log("system", "Dir %s doesn't exist creating", dir)
+		os.Remove(dir)
+		os.Mkdir(dir, os.ModePerm)
+	}
+}
+
 type Config struct {
 	Apps map[string]struct {
-		Repo   string            `json:"repo"`
-		Branch string            `json:"branch"`
-		Events []string          `json:"events"`
-		Build  []string          `json:"build"`
-		Entry  []string          `json:"entry"`
-		Env    map[string]string `json:"env"`
+		Repo     string            `json:"repo"`
+		Branch   string            `json:"branch"`
+		Events   []string          `json:"events"`
+		Build    []string          `json:"build"`
+		Entry    []string          `json:"entry"`
+		Env      map[string]string `json:"env"`
 	} `json:"apps"`
-	HTTPConfig map[string]struct {
-		External int `json:"external"`
-		Internal int `json:"internal"`
-	} `json:"http_config"`
-	UIPort       int    `json:"ui_port"`
-	HookPort     int    `json:"hook_port"`
-	Directory    string `json:"directory"`
-	NginxVersion string `json:"nginx_version"`
-	Processes    map[string]*os.Process
-	Loggers      map[string]*os.File
+	ProxyConfig map[string]int `json:"proxy_config"`
+	UIPort    int    `json:"ui_port"`
+	HookPort  int    `json:"hook_port"`
+	ProxyPort int    `json:"proxy_port"`
+	Directory string `json:"directory"`
+	Processes map[string]*os.Process
 }
 
 func (c Config) Logger(app string, command string) *os.File {
 	f := strings.Join(strings.Split(command, " "), "-")
-	n := fmt.Sprintf("%s.%s.%s.log", app, f, time.Now().Format(time.StampMilli))
+	n := fmt.Sprintf("%s.%s.%s.log", app, f, time.Now().UTC())
 	p := fmt.Sprintf("%s/.log/%s", c.Directory, n)
 
 	l, err := os.Create(p)
 
 	if err != nil {
-		log.Printf("Couldn't Open Log %s Piping to STDERR", p)
+		Log(app, "Couldn't Open Log %s Piping to STDERR", p)
 		return os.Stderr
 	}
 
@@ -54,59 +68,47 @@ func (c Config) RepoUrl(name string) *url.URL {
 
 	u, err := url.Parse(app.Repo)
 	if err != nil {
-		log.Fatal("Invalid Repo URL")
+		Log(name, "Invalid Repo URL")
 	}
 	return u
+}
+
+func (c Config) NginxUrl() string {
+	return fmt.Sprintf("https://nginx.org/download/nginx-%s.tar.gz", c.NginxVersion)
 }
 
 func (c Config) AppDir(name string) string {
 	return fmt.Sprintf("%s/%s", c.Directory, c.RepoUrl(name).Path)
 }
 
-func (c *Config) Init() {
+func (c Config) LogDirectory() string {
+	return fmt.Sprintf("%s/.log", c.Directory)
+}
+
+func (c *Config) Init() Config {
 	if c.Directory == "" {
 		c.Directory = ".tinyhook"
 	}
+	InitDir(c.Directory)
+	InitDir(c.LogDirectory())
 
-	info, err := os.Stat(c.Directory)
-	if err != nil {
-		os.Mkdir(c.Directory, os.ModePerm)
-		info, _ = os.Stat(c.Directory)
-	}
-	if !info.IsDir() {
-		os.Remove(c.Directory)
-		os.Mkdir(c.Directory, os.ModePerm)
-	}
-	log_dir := fmt.Sprintf("%s/.log", c.Directory)
-	info, err = os.Stat(log_dir)
-	if err != nil {
-		os.Mkdir(log_dir, os.ModePerm)
-		info, _ = os.Stat(c.Directory)
-	}
-	if !info.IsDir() {
-		os.Remove(log_dir)
-		os.Mkdir(log_dir, os.ModePerm)
-	}
 	if c.Processes == nil {
 		c.Processes = map[string]*os.Process{}
 	}
-	if c.Loggers == nil {
-		c.Loggers = map[string]*os.File{}
-	}
+
+	Log("system", "Now starting %s process(es)", fmt.Sprintf("%d", len(c.Apps)))
 	for name := range c.Apps {
 		c.StartProcess(name)
 	}
+	return *c
 }
 
 func (c Config) PushProcess(name string, proc *os.Process) {
 	c.Processes[name] = proc
 }
 
-func (c Config) PushLogger(name string, out *os.File) {
-	c.Loggers[name] = out
-}
-
 func (c Config) StartProcess(name string) {
+	Log(name, "Starting process")
 	c.Clone(name)
 	c.Checkout(name)
 	c.Pull(name)
@@ -117,14 +119,14 @@ func (c Config) StartProcess(name string) {
 func (c Config) Clone(name string) {
 	_, err := os.Stat(c.AppDir(name) + "/.git")
 	if err != nil {
-		log.Printf("No GIT Repo Detected for %s", name)
+		Log(name, "No GIT Repo Detected")
 		out := c.Logger(name, "git clone")
 		app := c.Apps[name]
 		dir := c.AppDir(name)
 		cmd := exec.Command("git", "clone", app.Repo, dir)
 		cmd.Stderr = out
 		cmd.Stdout = out
-		log.Printf("Cloning %s from %s into %s", name, app.Repo, dir)
+		Log(name, "Cloning from %s into %s", app.Repo, dir)
 		cmd.Run()
 	}
 }
@@ -136,7 +138,7 @@ func (c Config) Checkout(name string) {
 	cmd.Stderr = out
 	cmd.Stdout = out
 	cmd.Dir = c.AppDir(name)
-	log.Printf("now running git checkout %s", app.Branch)
+	Log(name, "Checkout branch %s", app.Branch)
 	cmd.Run()
 }
 
@@ -147,7 +149,7 @@ func (c Config) Pull(name string) {
 	cmd.Dir = c.AppDir(name)
 	cmd.Stdout = out
 	cmd.Stderr = out
-	log.Printf("Pulling latest from %s", app.Repo)
+	Log(name, "Pull latest from %s", app.Repo)
 	cmd.Run()
 }
 
@@ -158,7 +160,7 @@ func (c Config) RunBuild(name string) {
 	cmd.Dir = c.AppDir(name)
 	cmd.Stderr = out
 	cmd.Stdout = out
-	log.Printf("now running %s", strings.Join(app.Build, " "))
+	Log(name, "Runninf build command '%s'", strings.Join(app.Build, " "))
 	cmd.Run()
 }
 
@@ -170,30 +172,26 @@ func (c Config) RunEntry(name string) {
 	cmd.Stderr = out
 	cmd.Stdout = os.Stdout
 	cmd.Env = c.BuildEnv(name)
-	log.Printf("Now starting %s from entry %s", name, strings.Join(app.Entry, " "))
+	Log(name, "Starting entrypoint '%s'", strings.Join(app.Entry, " "))
 	cmd.Start()
-
-	c.PushLogger(name, out)
 	c.PushProcess(name, cmd.Process)
 }
 
 func (c Config) Kill(name string) {
 	proc := c.Processes[name]
 	if proc != nil {
-		log.Printf("Killing Process %d", proc.Pid)
-		cmd := exec.Command("kill", fmt.Sprintf("%d", proc.Pid))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		out := c.Logger(name, "kill")
+		pid := fmt.Sprintf("%d", proc.Pid)
+		cmd := exec.Command("kill", pid)
+		cmd.Stdout = out
+		cmd.Stderr = out
+		Log(name, "Killing Process %s", pid)
 		cmd.Run()
-	}
-	out := c.Loggers[name]
-	if out != nil {
-		out.Close()
 	}
 }
 
 func (c Config) RestartProcess(name string) {
-	log.Printf("Restarting %s", name)
+	Log(name, "Restarting")
 	c.Kill(name)
 	c.Checkout(name)
 	c.Pull(name)
@@ -233,14 +231,15 @@ func ReadConfig() Config {
 	c := Config{}
 	j, err := os.ReadFile("config.json")
 	if err != nil {
-		log.Fatal("No config found!")
+		Log("system", "No config found!")
+		os.Exit(1)
 	}
 	err = json.Unmarshal(j, &c)
 	if err != nil {
-		log.Fatalf("error reading config: %v", err)
+		Log("system", "error reading config: %v", fmt.Sprintf("%v", err))
+		os.Exit(1)
 	}
-	c.Init()
-	return c
+	return c.Init()
 }
 
 type HookHandler struct {
@@ -273,7 +272,7 @@ func (h HookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		name := c.GetAppByRepo(push.Repository.CloneURL)
 
 		if push.Ref == c.Ref(name) {
-			log.Printf("PUSH Detected on %s @ %s", push.Repository.FullName, push.Ref)
+			Log(name, "PUSH Detected at %s", push.Repository.CloneURL)
 			c.RestartProcess(name)
 		}
 	}
@@ -281,7 +280,68 @@ func (h HookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 }
 
+type ProxyHandler struct {
+	config Config
+}
+
+func (p ProxyHandler) ServeHTTP (w http.ResponseWriter, r *http.Request) {
+	port := p.config.ProxyConfig[r.URL.Host]
+
+	if port == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	url, e := url.Parse(fmt.Sprintf("http://localhost:%d", port))
+
+	if e != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	r.Host = url.Host
+	r.URL.Host = url.Host
+	r.URL.Scheme = url.Scheme
+	r.RequestURI = ""
+
+	res, e := http.DefaultClient.Do(r)
+
+	if e != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	for header, value := range res.Header {
+		w.Header()[header] = value
+	}
+
+	w.WriteHeader(res.StatusCode)
+	io.Copy(w, res.Body)
+}
+
 func main() {
-	h := HookHandler{ReadConfig()}
-	http.ListenAndServe(fmt.Sprintf(":%d", h.config.HookPort), h)
+	c := ReadConfig()
+	h := HookHandler{c}
+	p := ProxyHandler{c}
+	Log("system", "Now listening at", fmt.Sprintf("localhost:%d", c.HookPort))
+
+	sig := make(chan string, 1)
+
+	go func () {
+		err := http.ListenAndServe(fmt.Sprintf(":%d", c.HookPort), h)
+		Log("server:hook", fmt.Sprintf("encountered error: %v", err))
+		sig <- "server:hook"
+	}()
+
+	go func () {
+		err := http.ListenAndServe(fmt.Sprintf(":%d", c.ProxyPort), p)
+		Log("server:proxy", fmt.Sprintf("encountered error: %v", err))
+		sig <- "server:proxy"
+	}()
+
+	server := <- sig
+
+	Log("system", "%s has stopped unexpectedly. shutting down.", server)
+
+	os.Exit(1)
 }
