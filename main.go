@@ -174,6 +174,7 @@ func (c Config) RunEntry(name string) {
 	c.PushProcess(name, cmd.Process)
 
 	for {
+		time.Sleep(2 * time.Second)
 		r, err := http.Get(fmt.Sprintf("http://localhost:%d/_/heartbeat", app.Port))
 
 		if err != nil {
@@ -182,26 +183,27 @@ func (c Config) RunEntry(name string) {
 		}
 
 		if (r.StatusCode == http.StatusOK) {
+			Log(name, "Service is now live")
 			break
 		}
-
-		time.Sleep(2 * time.Second)
 	}
 
 	go func() {
-		r, err := http.Get(fmt.Sprintf("http://localhost:%d/_/heartbeat", app.Port))
+		for {
+			time.Sleep(30 * time.Second)
+			r, err := http.Get(fmt.Sprintf("http://localhost:%d/_/heartbeat", app.Port))
 
-		if err != nil {
-			Log(name, "Service unreachable")
-			continue
+			if err != nil {
+				Log(name, "Service unreachable")
+				continue
+			}
+
+			if (r.StatusCode == http.StatusOK) {
+				Log(name, "Service hearbeat returned 200")
+				continue
+			}
 		}
-
-		if (r.StatusCode == http.StatusOK) {
-			continue
-		}
-
-		time.Sleep(30 * time.Second)
-	}
+	} ()
 }
 
 func (c Config) Kill(name string) {
