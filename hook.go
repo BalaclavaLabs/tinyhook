@@ -1,6 +1,9 @@
 package main
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type PushEvent struct {
 	Ref        string `json:"ref"`
@@ -204,4 +207,12 @@ type PushEvent struct {
 		Removed  []any    `json:"removed"`
 		Modified []string `json:"modified"`
 	} `json:"head_commit"`
+}
+
+
+func (p *PushEvent) ReadBytes (input []byte) PushEvent {
+	json.Unmarshal(input, p)
+
+
+	return *p
 }
