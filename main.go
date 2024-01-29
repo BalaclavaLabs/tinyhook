@@ -154,8 +154,10 @@ func (h HookHandler) ReadBody(r *http.Request) ([]byte, ErrorCallback) {
 }
 
 func (h HookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if "psuh" == r.Header.Get("X-Github-Event") {
+	if "push" == r.Header.Get("X-Github-Event") {
 		b, cb := h.ReadBody(r)
+
+		log.Print(string(b))
 
 		if cb != nil {
 			(*cb)(w)
