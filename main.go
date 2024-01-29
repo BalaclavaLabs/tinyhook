@@ -59,6 +59,7 @@ func (c Config) Init() {
 	cmd = exec.Command(c.Entry[0], c.Entry[1:]...)
 	cmd.Env = c.BuildEnv()
 	cmd.Dir = loc
+	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Start()
 
@@ -86,6 +87,8 @@ func (c Config) RestartProcess() {
 
 	cmd = exec.Command(c.Entry[0], c.Entry[1:]...)
 	cmd.Dir = loc
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
 	cmd.Env = c.BuildEnv()
 	cmd.Start()
 
