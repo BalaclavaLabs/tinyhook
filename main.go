@@ -282,11 +282,11 @@ type ProxyHandler struct {
 }
 
 func (p ProxyHandler) ServeHTTP (w http.ResponseWriter, r *http.Request) {
-	host := r.URL.Host
+	host := r.Host
 	port := p.config.ProxyConfig[host]
 
 
-	Log("server:proxy", r.URL.Hostname())
+	Log("server:proxy", r.Host)
 	Log("server:proxy", "request received for host %s", host)
 
 	if port == 0 {
