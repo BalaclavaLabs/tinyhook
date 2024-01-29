@@ -71,6 +71,7 @@ func (c Config) RestartProcess() {
 	if c.Process != nil {
 		log.Print("Killing Process ", c.Process.Pid)
 		err := c.Process.Kill()
+		c.Process.Wait()
 		if err != nil {
 			log.Fatal(err)
 		}
