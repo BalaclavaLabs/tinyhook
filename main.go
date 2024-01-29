@@ -30,7 +30,7 @@ func (c Config) RepoUrl() *url.URL {
 	return u
 }
 
-func (c Config) Init() {
+func (c *Config) Init() {
 	if c.Directory == "" {
 		c.Directory = ".tinyhook"
 	}
