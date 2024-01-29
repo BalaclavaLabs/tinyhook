@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-func Log(name string, input ...string) {
-	fmt.Printf("[Tinyhook][%s] %s\n", name, fmt.Sprintf(input[0], input[1:]))
+func Log(name string, format string, input ...any) {
+	fmt.Printf("[Tinyhook][%s] %s\n", name, fmt.Sprintf(format, input...))
 }
 
 func InitDir(dir string) {
@@ -93,7 +93,7 @@ func (c *Config) Init() Config {
 		c.Processes = map[string]*os.Process{}
 	}
 
-	Log("system", "Now starting %s process(es)", fmt.Sprintf("%d", len(c.Apps)))
+	Log("system", "Now starting %d process(es)", len(c.Apps))
 	for name := range c.Apps {
 		c.StartProcess(name)
 	}
@@ -167,7 +167,7 @@ func (c Config) RunEntry(name string) {
 	cmd := exec.Command(app.Entry[0], app.Entry[1:]...)
 	cmd.Dir = c.AppDir(name)
 	cmd.Stderr = out
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = out
 	cmd.Env = c.BuildEnv(name)
 	Log(name, "Starting entrypoint '%s'", strings.Join(app.Entry, " "))
 	cmd.Start()
@@ -283,7 +283,7 @@ type ProxyHandler struct {
 
 func (p ProxyHandler) ServeHTTP (w http.ResponseWriter, r *http.Request) {
 	host := r.URL.Host
-	port := p.config.ProxyConfig[r.URL.Host]
+	port := p.config.ProxyConfig[host]
 
 	Log("server:proxy", "request received for host %s", host)
 
@@ -324,19 +324,20 @@ func main() {
 	c := ReadConfig()
 	h := HookHandler{c}
 	p := ProxyHandler{c}
-	Log("system", "Now listening at", fmt.Sprintf("localhost:%d", c.HookPort))
 
 	sig := make(chan string, 1)
 
 	go func () {
+		Log("server:hook", "Now listening at localhost:%d", c.HookPort)
 		err := http.ListenAndServe(fmt.Sprintf(":%d", c.HookPort), h)
-		Log("server:hook", fmt.Sprintf("encountered error: %v", err))
+		Log("server:hook", "%v", err)
 		sig <- "server:hook"
 	}()
 
 	go func () {
+		Log("server:proxy", "Now listening at localhost:%d", c.ProxyPort)
 		err := http.ListenAndServe(fmt.Sprintf(":%d", c.ProxyPort), p)
-		Log("server:proxy", fmt.Sprintf("encountered error: %v", err))
+		Log("server:proxy", "%v", err)
 		sig <- "server:proxy"
 	}()
 
