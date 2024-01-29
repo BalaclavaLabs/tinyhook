@@ -13,7 +13,7 @@ import (
 )
 
 func Log(name string, format string, input ...any) {
-	fmt.Printf("[Tinyhook][%s] %s\n", name, fmt.Sprintf(format, input...))
+	fmt.Printf("\x1b[1;32m[Tinyhook]\x1b[1;34m[%s]\x1b[1;39m %s\n", name, fmt.Sprintf(format, input...))
 }
 
 func InitDir(dir string) {
@@ -33,19 +33,20 @@ func InitDir(dir string) {
 
 type Config struct {
 	Apps map[string]struct {
-		Repo     string            `json:"repo"`
-		Branch   string            `json:"branch"`
-		Events   []string          `json:"events"`
-		Build    []string          `json:"build"`
-		Entry    []string          `json:"entry"`
-		Env      map[string]string `json:"env"`
+		Port   int               `json:"port"`
+		Repo   string            `json:"repo"`
+		Branch string            `json:"branch"`
+		Events []string          `json:"events"`
+		Build  []string          `json:"build"`
+		Entry  []string          `json:"entry"`
+		Env    map[string]string `json:"env"`
 	} `json:"apps"`
-	ProxyConfig map[string]int `json:"proxy_config"`
-	UIPort    int    `json:"ui_port"`
-	HookPort  int    `json:"hook_port"`
-	ProxyPort int    `json:"proxy_port"`
-	Directory string `json:"directory"`
-	Processes map[string]*os.Process
+	ProxyConfig map[string]string `json:"proxy_config"`
+	UIPort      int               `json:"ui_port"`
+	HookPort    int               `json:"hook_port"`
+	ProxyPort   int               `json:"proxy_port"`
+	Directory   string            `json:"directory"`
+	Processes   map[string]*os.Process
 }
 
 func (c Config) Logger(app string, command string) *os.File {
@@ -72,7 +73,6 @@ func (c Config) RepoUrl(name string) *url.URL {
 	}
 	return u
 }
-
 
 func (c Config) AppDir(name string) string {
 	return fmt.Sprintf("%s/%s", c.Directory, c.RepoUrl(name).Path)
@@ -157,7 +157,7 @@ func (c Config) RunBuild(name string) {
 	cmd.Dir = c.AppDir(name)
 	cmd.Stderr = out
 	cmd.Stdout = out
-	Log(name, "Runninf build command '%s'", strings.Join(app.Build, " "))
+	Log(name, "Running build command '%s'", strings.Join(app.Build, " "))
 	cmd.Run()
 }
 
@@ -172,18 +172,44 @@ func (c Config) RunEntry(name string) {
 	Log(name, "Starting entrypoint '%s'", strings.Join(app.Entry, " "))
 	cmd.Start()
 	c.PushProcess(name, cmd.Process)
+
+	for {
+		r, err := http.Get(fmt.Sprintf("http://localhost:%d/_/heartbeat", app.Port))
+
+		if err != nil {
+			Log(name, "Waiting service to go live")
+			continue
+		}
+
+		if (r.StatusCode == http.StatusOK) {
+			break
+		}
+
+		time.Sleep(2 * time.Second)
+	}
+
+	go func() {
+		r, err := http.Get(fmt.Sprintf("http://localhost:%d/_/heartbeat", app.Port))
+
+		if err != nil {
+			Log(name, "Service unreachable")
+			continue
+		}
+
+		if (r.StatusCode == http.StatusOK) {
+			continue
+		}
+
+		time.Sleep(30 * time.Second)
+	}
 }
 
 func (c Config) Kill(name string) {
 	proc := c.Processes[name]
 	if proc != nil {
-		out := c.Logger(name, "kill")
-		pid := fmt.Sprintf("%d", proc.Pid)
-		cmd := exec.Command("kill", pid)
-		cmd.Stdout = out
-		cmd.Stderr = out
-		Log(name, "Killing Process %s", pid)
-		cmd.Run()
+		pid := proc.Pid
+		proc.Kill()
+		Log(name, "Killing Process %d", pid)
 	}
 }
 
@@ -281,12 +307,11 @@ type ProxyHandler struct {
 	config Config
 }
 
-func (p ProxyHandler) ServeHTTP (w http.ResponseWriter, r *http.Request) {
+func (p ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	host := r.Host
-	port := p.config.ProxyConfig[host]
+	name := p.config.ProxyConfig[host]
+	port := p.config.Apps[name].Port
 
-
-	Log("server:proxy", r.Host)
 	Log("server:proxy", "request received for host %s", host)
 
 	if port == 0 {
@@ -306,7 +331,7 @@ func (p ProxyHandler) ServeHTTP (w http.ResponseWriter, r *http.Request) {
 	r.URL.Host = url.Host
 	r.URL.Scheme = url.Scheme
 	r.RequestURI = ""
-
+	Log("server:proxy", "Passing request to [%s]", name)
 	res, e := http.DefaultClient.Do(r)
 
 	if e != nil {
@@ -329,21 +354,21 @@ func main() {
 
 	sig := make(chan string, 1)
 
-	go func () {
+	go func() {
 		Log("server:hook", "Now listening at localhost:%d", c.HookPort)
 		err := http.ListenAndServe(fmt.Sprintf(":%d", c.HookPort), h)
 		Log("server:hook", "%v", err)
 		sig <- "server:hook"
 	}()
 
-	go func () {
+	go func() {
 		Log("server:proxy", "Now listening at localhost:%d", c.ProxyPort)
 		err := http.ListenAndServe(fmt.Sprintf(":%d", c.ProxyPort), p)
 		Log("server:proxy", "%v", err)
 		sig <- "server:proxy"
 	}()
 
-	server := <- sig
+	server := <-sig
 
 	Log("system", "%s has stopped unexpectedly. shutting down.", server)
 
