@@ -37,10 +37,10 @@ type Config struct {
 
 func (c Config) Logger(app string, command string) *os.File {
 	f := strings.Join(strings.Split(command, " "), "-")
-	n := fmt.Sprintf("%s.%s.%s.log", app, f, time.Now().Format(time.UnixDate))
+	n := fmt.Sprintf("%s.%s.%s.log", app, f, time.Now().Format(time.StampMilli))
 	p := fmt.Sprintf("%s/.log/%s", c.Directory, n)
 
-	l, err := os.OpenFile(p, os.O_CREATE, fs.ModePerm)
+	l, err := os.Create(p)
 
 	if err != nil {
 		log.Printf("Couldn't Open Log %s Piping to STDERR", p)
@@ -119,11 +119,12 @@ func (c Config) Clone(name string) {
 	_, err := os.Stat(c.AppDir(name) + "/.git")
 	if err != nil {
 		log.Printf("No GIT Repo Detected for %s", name)
+		out := c.Logger(name, "git clone")
 		app := c.Apps[name]
 		dir := c.AppDir(name)
 		cmd := exec.Command("git", "clone", app.Repo, dir)
-		cmd.Stderr = os.Stderr
-		cmd.Stdout = os.Stdout
+		cmd.Stderr = out
+		cmd.Stdout = out
 		log.Printf("Cloning %s from %s into %s", name, app.Repo, dir)
 		cmd.Run()
 	}
@@ -138,11 +139,10 @@ func (c Config) Checkout(name string) {
 	cmd.Dir = c.AppDir(name)
 	log.Printf("now running git checkout %s", app.Branch)
 	cmd.Run()
-	out.Close()
 }
 
 func (c Config) Pull(name string) {
-	out := c.Logger("name", "git pull")
+	out := c.Logger(name, "git pull")
 	app := c.Apps[name]
 	cmd := exec.Command("git", "pull")
 	cmd.Dir = c.AppDir(name)
@@ -150,7 +150,6 @@ func (c Config) Pull(name string) {
 	cmd.Stderr = out
 	log.Printf("Pulling latest from %s", app.Repo)
 	cmd.Run()
-	out.Close()
 }
 
 func (c Config) RunBuild(name string) {
@@ -158,23 +157,24 @@ func (c Config) RunBuild(name string) {
 	app := c.Apps[name]
 	cmd := exec.Command(app.Build[0], app.Build[1:]...)
 	cmd.Dir = c.AppDir(name)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
+	cmd.Stderr = out
+	cmd.Stdout = out
 	log.Printf("now running %s", strings.Join(app.Build, " "))
 	cmd.Run()
-	out.Close()
 }
 
 func (c Config) RunEntry(name string) {
+	out := c.Logger(name, "entry")
 	app := c.Apps[name]
 	cmd := exec.Command(app.Entry[0], app.Entry[1:]...)
 	cmd.Dir = c.AppDir(name)
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = out
 	cmd.Stdout = os.Stdout
 	cmd.Env = c.BuildEnv(name)
 	log.Printf("Now starting %s from entry %s", name, strings.Join(app.Entry, " "))
 	cmd.Start()
 
+	c.PushLogger(name, out)
 	c.PushProcess(name, cmd.Process)
 }
 
