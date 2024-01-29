@@ -285,9 +285,13 @@ type ProxyHandler struct {
 }
 
 func (p ProxyHandler) ServeHTTP (w http.ResponseWriter, r *http.Request) {
+	host := r.URL.Host
 	port := p.config.ProxyConfig[r.URL.Host]
 
+	Log("server:proxy", "request received for host %s", host)
+
 	if port == 0 {
+		Log("server:proxy", "No configured service for %s", host)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
