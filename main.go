@@ -70,7 +70,7 @@ func (c Config) RestartProcess() {
 	log.Print("restarting process")
 	if c.Process != nil {
 		log.Print("Killing Process ", c.Process.Pid)
-		cmd := exec.Command("kill", string(c.Process.Pid))
+		cmd := exec.Command("kill", fmt.Sprintf("%d", c.Process.Pid))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Run()
