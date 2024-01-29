@@ -73,9 +73,6 @@ func (c Config) RepoUrl(name string) *url.URL {
 	return u
 }
 
-func (c Config) NginxUrl() string {
-	return fmt.Sprintf("https://nginx.org/download/nginx-%s.tar.gz", c.NginxVersion)
-}
 
 func (c Config) AppDir(name string) string {
 	return fmt.Sprintf("%s/%s", c.Directory, c.RepoUrl(name).Path)
