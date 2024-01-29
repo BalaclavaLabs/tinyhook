@@ -210,9 +210,9 @@ type PushEvent struct {
 }
 
 
-func (p *PushEvent) ReadBytes (input []byte) PushEvent {
-	json.Unmarshal(input, p)
+func (p PushEvent) ReadBytes (input []byte) PushEvent {
+	json.Unmarshal(input, &p)
 
 
-	return *p
+	return p
 }

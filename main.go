@@ -231,7 +231,7 @@ func (h HookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		push := (&PushEvent{}).ReadBytes(b)
 
-		name := c.GetAppByRepo(push.Repository.PullsURL)
+		name := c.GetAppByRepo(push.Repository.CloneURL)
 
 		if push.Ref == c.Ref(name) {
 			c.RestartProcess(name)
