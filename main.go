@@ -69,7 +69,7 @@ func (c Config) Init() {
 func (c Config) RestartProcess() {
 	log.Print("restarting process")
 	if c.Process != nil {
-
+		log.Print("Killing Process ", c.Process.Pid)
 		err := c.Process.Kill()
 		if err != nil {
 			log.Fatal(err)
