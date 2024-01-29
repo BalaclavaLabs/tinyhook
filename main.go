@@ -70,11 +70,10 @@ func (c Config) RestartProcess() {
 	log.Print("restarting process")
 	if c.Process != nil {
 		log.Print("Killing Process ", c.Process.Pid)
-		err := c.Process.Kill()
-		c.Process.Wait()
-		if err != nil {
-			log.Fatal(err)
-		}
+		cmd := exec.Command("kill", string(c.Process.Pid))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
 	}
 
 	url := c.RepoUrl()
