@@ -66,6 +66,7 @@ func (c Config) Init() {
 }
 
 func (c Config) RestartProcess() {
+	log.Print("restarting process")
 	if c.Process != nil {
 		c.Process.Kill()
 	}
@@ -121,6 +122,7 @@ func (h HookHandler) Ref() string {
 }
 
 func (h HookHandler) HandlePush(p PushEvent) {
+	log.Print(p.Ref, h.Ref())
 	if p.Ref == h.Ref() {
 		h.config.RestartProcess()
 	}
@@ -130,6 +132,7 @@ func (h HookHandler) HandleEvent(ev string, e []byte) {
 	if ev == "push" {
 		p := PushEvent{}
 		json.Unmarshal(e, &p)
+		log.Print("push", p.Ref)
 		h.HandlePush(p)
 	}
 }
@@ -151,18 +154,15 @@ func (h HookHandler) ReadBody(r *http.Request) ([]byte, ErrorCallback) {
 }
 
 func (h HookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if "psuh" == r.Header.Get("X-Github-Event") {
+		b, cb := h.ReadBody(r)
 
-	for _, event := range h.Events() {
-		if event == r.Header.Get("X-Github-Event") {
-			b, cb := h.ReadBody(r)
-
-			if cb != nil {
-				(*cb)(w)
-				return
-			}
-
-			h.HandleEvent(event, b)
+		if cb != nil {
+			(*cb)(w)
+			return
 		}
+
+		h.HandleEvent("push", b)
 	}
 
 	w.WriteHeader(200)
