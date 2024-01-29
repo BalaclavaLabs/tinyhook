@@ -68,7 +68,11 @@ func (c Config) Init() {
 func (c Config) RestartProcess() {
 	log.Print("restarting process")
 	if c.Process != nil {
-		c.Process.Kill()
+
+		err := c.Process.Kill()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	url := c.RepoUrl()
