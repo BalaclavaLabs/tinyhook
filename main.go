@@ -17,6 +17,7 @@ type Config struct {
 	Branch    string            `json:"branch"`
 	Directory string            `json:"directory"`
 	Events    []string          `json:"events"`
+	Build     []string          `json:"build"`
 	Entry     []string          `json:"entry"`
 	Env       map[string]string `json:"env"`
 	Process   *os.Process
@@ -56,6 +57,12 @@ func (c *Config) Init() {
 	cmd.Dir = loc
 	cmd.Run()
 
+	cmd = exec.Command(c.Build[0], c.Build[1:]...)
+	cmd.Dir = loc
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Run()
+
 	cmd = exec.Command(c.Entry[0], c.Entry[1:]...)
 	cmd.Env = c.BuildEnv()
 	cmd.Dir = loc
@@ -82,6 +89,12 @@ func (c Config) RestartProcess() {
 
 	cmd := exec.Command("git", "pull")
 	cmd.Dir = loc
+	cmd.Stdout = os.Stdout
+	cmd.Run()
+
+	cmd = exec.Command(c.Build[0], c.Build[1:]...)
+	cmd.Dir = loc
+	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Run()
 
