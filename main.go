@@ -98,7 +98,7 @@ func (c Config) StartProcess (name string) {
 	cmd.Dir = loc
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	log.Printf("now running ", strings.Join(app.Build, " "))
+	log.Printf("now running %s", strings.Join(app.Build, " "))
 	cmd.Run()
 
 	cmd = exec.Command(app.Entry[0], app.Entry[1:]...)
@@ -106,7 +106,7 @@ func (c Config) StartProcess (name string) {
 	cmd.Dir = loc
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	log.Printf("now running ", strings.Join(app.Entry, " "))
+	log.Printf("now running %s", strings.Join(app.Entry, " "))
 	cmd.Start()
 
 	c.PushProcess(name, cmd.Process)
@@ -154,7 +154,7 @@ func (c Config) RestartProcess(name string) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Env = c.BuildEnv(name)
-	log.Printf("now running ", strings.Join(app.Entry, " "))
+	log.Printf("now running %s", strings.Join(app.Entry, " "))
 	cmd.Start()
 
 	c.PushProcess(name, proc)
