@@ -77,6 +77,7 @@ func (c Config) RestartProcess() {
 
 	cmd := exec.Command("git", "pull")
 	cmd.Dir = loc
+	cmd.Stdout = os.Stdout
 	cmd.Run()
 
 	cmd = exec.Command(c.Entry[0], c.Entry[1:]...)
