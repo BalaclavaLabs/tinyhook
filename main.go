@@ -102,7 +102,7 @@ func (c Config) StartProcess (name string) {
 	cmd.Run()
 
 	cmd = exec.Command(app.Entry[0], app.Entry[1:]...)
-	cmd.Env = c.BuildEnv()
+	cmd.Env = c.BuildEnv(name)
 	cmd.Dir = loc
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -153,7 +153,7 @@ func (c Config) RestartProcess(name string) {
 	cmd.Dir = loc
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	cmd.Env = c.BuildEnv()
+	cmd.Env = c.BuildEnv(name)
 	log.Printf("now running ", strings.Join(app.Entry, " "))
 	cmd.Start()
 
