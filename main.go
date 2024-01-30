@@ -116,6 +116,7 @@ func (c Config) StartProcess(name string) {
 	c.Pull(name)
 	c.RunBuild(name)
 	c.RunEntry(name)
+	c.WaitForLive(name)
 	c.Heartbeat(name)
 }
 
@@ -180,7 +181,7 @@ func (c Config) RunEntry(name string) {
 	c.PushProcess(name, cmd.Process)
 }
 
-func (c Config) Heartbeat(name string) {
+func (c Config) WaitForLive(name string) {
 	app := c.Apps[name]
 	for {
 		time.Sleep(2 * time.Second)
@@ -196,6 +197,10 @@ func (c Config) Heartbeat(name string) {
 			break
 		}
 	}
+}
+
+func (c Config) Heartbeat(name string) {
+	app := c.Apps[name]
 	go func() {
 		for {
 			time.Sleep(30 * time.Second)
@@ -231,6 +236,7 @@ func (c Config) RestartProcess(name string) {
 	c.Pull(name)
 	c.RunBuild(name)
 	c.RunEntry(name)
+	c.WaitForLive(name)
 }
 
 func (c Config) BuildEnv(name string) []string {
