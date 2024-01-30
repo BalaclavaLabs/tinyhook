@@ -31,22 +31,25 @@ func InitDir(dir string) {
 	}
 }
 
+type App struct {
+	Port   int               `json:"port"`
+	Repo   string            `json:"repo"`
+	Branch string            `json:"branch"`
+	Events []string          `json:"events"`
+	Build  []string          `json:"build"`
+	Entry  []string          `json:"entry"`
+	Env    map[string]string `json:"env"`
+}
+
 type Config struct {
-	Apps map[string]struct {
-		Port   int               `json:"port"`
-		Repo   string            `json:"repo"`
-		Branch string            `json:"branch"`
-		Events []string          `json:"events"`
-		Build  []string          `json:"build"`
-		Entry  []string          `json:"entry"`
-		Env    map[string]string `json:"env"`
-	} `json:"apps"`
+	Apps        map[string]App    `json:"apps"`
 	ProxyConfig map[string]string `json:"proxy_config"`
 	UIPort      int               `json:"ui_port"`
 	HookPort    int               `json:"hook_port"`
 	ProxyPort   int               `json:"proxy_port"`
 	Directory   string            `json:"directory"`
 	Processes   map[string]*os.Process
+	Heartbeats  map[string]chan string
 }
 
 func (c Config) Logger(app string, command string) *os.File {
@@ -172,7 +175,11 @@ func (c Config) RunEntry(name string) {
 	Log(name, "Starting entrypoint '%s'", strings.Join(app.Entry, " "))
 	cmd.Start()
 	c.PushProcess(name, cmd.Process)
+	c.Heartbeat(name)
+}
 
+func (c Config) Heartbeat(name string) {
+	app := c.Apps[name]
 	for {
 		time.Sleep(2 * time.Second)
 		r, err := http.Get(fmt.Sprintf("http://localhost:%d/_/heartbeat", app.Port))
@@ -182,12 +189,11 @@ func (c Config) RunEntry(name string) {
 			continue
 		}
 
-		if (r.StatusCode == http.StatusOK) {
+		if r.StatusCode == http.StatusOK {
 			Log(name, "Service is now live")
 			break
 		}
 	}
-
 	go func() {
 		for {
 			time.Sleep(30 * time.Second)
@@ -198,12 +204,13 @@ func (c Config) RunEntry(name string) {
 				continue
 			}
 
-			if (r.StatusCode == http.StatusOK) {
+			if r.StatusCode == http.StatusOK {
 				Log(name, "Service hearbeat returned 200")
 				continue
 			}
 		}
-	} ()
+
+	}()
 }
 
 func (c Config) Kill(name string) {
@@ -212,6 +219,10 @@ func (c Config) Kill(name string) {
 		pid := proc.Pid
 		proc.Kill()
 		Log(name, "Killing Process %d", pid)
+	}
+	hb := c.Heartbeats[name]
+	if hb != nil {
+		hb <- "stop"
 	}
 }
 
