@@ -99,6 +99,9 @@ func (c *Config) Init() Config {
 	for name := range c.Apps {
 		c.StartProcess(name)
 	}
+	c.Apps["server:hook"] = App{
+		Port: c.HookPort,
+	}
 	return *c
 }
 
@@ -219,8 +222,6 @@ func (c Config) Kill(name string) {
 		proc.Kill()
 		Log(name, "Killing Process %d", pid)
 	}
-
-
 }
 
 func (c Config) RestartProcess(name string) {
