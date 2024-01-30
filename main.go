@@ -248,6 +248,7 @@ func (c Config) Kill(name string) {
 	if proc != nil {
 		pid := proc.Pid
 		proc.Kill()
+		proc.Wait()
 		Log(name, "Killing Process %d", pid)
 	}
 }
