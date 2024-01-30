@@ -59,7 +59,7 @@ func (c Config) RegisterSpelunk() {
 	}
 	for name, app := range c.Apps {
 		if name == "server:hook" {
-			return
+			continue
 		}
 		repo := app.Repo
 		Log("spelunk", "Register spelunk events for %s", name)
