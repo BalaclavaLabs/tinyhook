@@ -44,6 +44,7 @@ type App struct {
 type Config struct {
 	Apps        map[string]App    `json:"apps"`
 	ProxyConfig map[string]string `json:"proxy_config"`
+	HookHost    string            `json:"hook_host"`
 	Spelunk     string            `json:"Spelunk"`
 	UIPort      int               `json:"ui_port"`
 	HookPort    int               `json:"hook_port"`
@@ -52,16 +53,15 @@ type Config struct {
 	Processes   map[string]*os.Process
 }
 
-func (c Config) RegisterSpelunk () {
+func (c Config) RegisterSpelunk() {
 	if c.Spelunk == "" {
 		return
 	}
 	for name, app := range c.Apps {
 		repo := app.Repo
-		host := c.ProxyConfig["server:hook"]
 		Log("spelunk", "Register spelunk events for %s", name)
-		Log("spelunk", "%s -> %s", c.Spelunk, host)
-		http.Get(fmt.Sprintf("%s/register?repo=%s&host=%s", c.Spelunk, repo, host))
+		Log("spelunk", "%s -> %s", c.Spelunk, c.HookHost)
+		http.Get(fmt.Sprintf("%s/register?repo=%s&host=%s", c.Spelunk, repo, c.HookHost))
 	}
 }
 
@@ -116,6 +116,8 @@ func (c *Config) Init() Config {
 	c.Apps["server:hook"] = App{
 		Port: c.HookPort,
 	}
+	c.ProxyConfig[c.HookHost] = "server:hook"
+
 	c.RegisterSpelunk()
 	return *c
 }
