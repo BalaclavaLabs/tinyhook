@@ -331,6 +331,12 @@ func (p ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if strings.HasPrefix(r.URL.Path, "/_/") {
+		Log("server:proxy", "Internal method blocked")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	url, e := url.Parse(fmt.Sprintf("http://localhost:%d", port))
 
 	if e != nil {
