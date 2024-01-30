@@ -32,13 +32,13 @@ func InitDir(dir string) {
 }
 
 type App struct {
-	Port   int               `json:"port"`
-	Repo   string            `json:"repo"`
-	Branch string            `json:"branch"`
-	Events []string          `json:"events"`
-	Build  []string          `json:"build"`
-	Entry  []string          `json:"entry"`
-	Env    map[string]string `json:"env"`
+	Port    int      `json:"port"`
+	Repo    string   `json:"repo"`
+	Branch  string   `json:"branch"`
+	Events  []string `json:"events"`
+	Build   []string          `json:"build"`
+	Entry   []string          `json:"entry"`
+	Env     map[string]string `json:"env"`
 }
 
 type Config struct {
@@ -286,21 +286,13 @@ type HookHandler struct {
 	config Config
 }
 
-func (h HookHandler) ReadBody(r *http.Request) ([]byte, error) {
-	body, err := io.ReadAll(r.Body)
-
-	if err != nil {
-		return body, err
-	}
-
-	return body, nil
-}
 
 func (h HookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c := h.config
-
-	if "push" == r.Header.Get("X-Github-Event") {
-		b, err := h.ReadBody(r)
+	ev := r.Header.Get("X-Github-Event")
+	Log("server:hook", "received event %s", ev)
+	if "push" == ev {
+		b, err := io.ReadAll(r.Body)
 
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
