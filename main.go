@@ -61,7 +61,8 @@ func (c Config) RegisterSpelunk() {
 		repo := app.Repo
 		Log("spelunk", "Register spelunk events for %s", name)
 		Log("spelunk", "%s -> %s", c.Spelunk, c.HookHost)
-		http.Get(fmt.Sprintf("https://%s/register?repo=%s&host=%s", c.Spelunk, repo, c.HookHost))
+		_, err := http.Get(fmt.Sprintf("%s/register?repo=%s&host=https://%s", c.Spelunk, repo, c.HookHost))
+		Log("spelunk", "Error registering spelunk %v", err)
 	}
 }
 
