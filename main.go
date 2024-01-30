@@ -32,23 +32,35 @@ func InitDir(dir string) {
 }
 
 type App struct {
-	Port    int      `json:"port"`
-	Repo    string   `json:"repo"`
-	Branch  string   `json:"branch"`
-	Events  []string `json:"events"`
-	Build   []string          `json:"build"`
-	Entry   []string          `json:"entry"`
-	Env     map[string]string `json:"env"`
+	Port   int               `json:"port"`
+	Repo   string            `json:"repo"`
+	Branch string            `json:"branch"`
+	Events []string          `json:"events"`
+	Build  []string          `json:"build"`
+	Entry  []string          `json:"entry"`
+	Env    map[string]string `json:"env"`
 }
 
 type Config struct {
 	Apps        map[string]App    `json:"apps"`
 	ProxyConfig map[string]string `json:"proxy_config"`
+	Spelunk     string            `json:"Spelunk"`
 	UIPort      int               `json:"ui_port"`
 	HookPort    int               `json:"hook_port"`
 	ProxyPort   int               `json:"proxy_port"`
 	Directory   string            `json:"directory"`
 	Processes   map[string]*os.Process
+}
+
+func (c Config) RegisterSpelunk () {
+	if c.Spelunk == "" {
+		return
+	}
+	for _, app := range c.Apps {
+		repo := app.Repo
+		host := c.ProxyConfig["server:hook"]
+		http.Get(fmt.Sprintf("%s/register?repo=%s&host=%s", c.Spelunk, repo, host))
+	}
 }
 
 func (c Config) Logger(app string, command string) *os.File {
@@ -102,6 +114,7 @@ func (c *Config) Init() Config {
 	c.Apps["server:hook"] = App{
 		Port: c.HookPort,
 	}
+	c.RegisterSpelunk()
 	return *c
 }
 
@@ -285,7 +298,6 @@ func ReadConfig() Config {
 type HookHandler struct {
 	config Config
 }
-
 
 func (h HookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c := h.config
