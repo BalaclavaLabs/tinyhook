@@ -56,9 +56,11 @@ func (c Config) RegisterSpelunk () {
 	if c.Spelunk == "" {
 		return
 	}
-	for _, app := range c.Apps {
+	for name, app := range c.Apps {
 		repo := app.Repo
 		host := c.ProxyConfig["server:hook"]
+		Log("spelunk", "Register spelunk events for %s", name)
+		Log("spelunk", "%s -> %s", c.Spelunk, host)
 		http.Get(fmt.Sprintf("%s/register?repo=%s&host=%s", c.Spelunk, repo, host))
 	}
 }
