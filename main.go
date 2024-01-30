@@ -58,11 +58,16 @@ func (c Config) RegisterSpelunk() {
 		return
 	}
 	for name, app := range c.Apps {
+		if name == "server:hook" {
+			return
+		}
 		repo := app.Repo
 		Log("spelunk", "Register spelunk events for %s", name)
 		Log("spelunk", "%s -> %s", c.Spelunk, c.HookHost)
 		_, err := http.Get(fmt.Sprintf("%s/register?repo=%s&host=https://%s", c.Spelunk, repo, c.HookHost))
-		Log("spelunk", "Error registering spelunk %v", err)
+		if err != nil {
+			Log("spelunk", "Error registering spelunk %v", err)
+		}
 	}
 }
 
