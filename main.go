@@ -49,7 +49,6 @@ type Config struct {
 	ProxyPort   int               `json:"proxy_port"`
 	Directory   string            `json:"directory"`
 	Processes   map[string]*os.Process
-	Heartbeats  map[string]chan string
 }
 
 func (c Config) Logger(app string, command string) *os.File {
@@ -114,6 +113,7 @@ func (c Config) StartProcess(name string) {
 	c.Pull(name)
 	c.RunBuild(name)
 	c.RunEntry(name)
+	c.Heartbeat(name)
 }
 
 func (c Config) Clone(name string) {
@@ -175,7 +175,6 @@ func (c Config) RunEntry(name string) {
 	Log(name, "Starting entrypoint '%s'", strings.Join(app.Entry, " "))
 	cmd.Start()
 	c.PushProcess(name, cmd.Process)
-	c.Heartbeat(name)
 }
 
 func (c Config) Heartbeat(name string) {
@@ -220,10 +219,8 @@ func (c Config) Kill(name string) {
 		proc.Kill()
 		Log(name, "Killing Process %d", pid)
 	}
-	hb := c.Heartbeats[name]
-	if hb != nil {
-		hb <- "stop"
-	}
+
+
 }
 
 func (c Config) RestartProcess(name string) {
